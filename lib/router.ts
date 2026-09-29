@@ -1,0 +1,4 @@
+export type TaskType="code"|"writing"|"research"|"analysis"|"general";
+export type RouteDecision={task:TaskType;model:string;reason:string};
+export function classifyPrompt(prompt:string):TaskType{const p=prompt.toLowerCase();if(/código|codigo|program|typescript|python|bug|api/.test(p))return"code";if(/pesquis|procure|notícia|noticia|fonte/.test(p))return"research";if(/analis|compare|dados|planilha/.test(p))return"analysis";if(/escrev|texto|email|mensagem|revis/.test(p))return"writing";return"general"}
+export function routePrompt(prompt:string,manualModel="Automático"):RouteDecision{const task=classifyPrompt(prompt);if(manualModel!=="Automático")return{task,model:manualModel,reason:"Modelo escolhido manualmente"};const preferred:Record<TaskType,string>={code:"auto-code",writing:"auto-writing",research:"auto-research",analysis:"auto-analysis",general:"auto-general"};return{task,model:preferred[task],reason:`Router classificou a solicitação como ${task}`}}
