@@ -4,10 +4,10 @@ import {routePrompt} from "../../../lib/router";
 export const runtime="nodejs";
 
 const gatewayModels:Record<string,string>={
-  gpt:"openai/gpt-5.6",
-  claude:"anthropic/claude-sonnet-5.5",
-  gemini:"google/gemini-3.8-flash",
-  deepseek:"deepseek/deepseek-v4.1-flash"
+  gpt:"openai/gpt-5.4",
+  claude:"anthropic/claude-sonnet-4.6",
+  gemini:"google/gemini-3-flash",
+  deepseek:"deepseek/deepseek-v3.2"
 };
 
 export async function POST(req:Request){
