@@ -7,15 +7,24 @@ type DirectResult={text:string;provider:string;model:string};
 async function gemini(prompt:string):Promise<DirectResult>{
   const key=process.env.GEMINI_API_KEY;
   if(!key) throw new Error("GEMINI_API_KEY não configurada");
-  const model=process.env.GEMINI_MODEL||"gemini-3.8-flash";
-  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{
-    method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},
-    body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
-  });
-  const data=await r.json();
-  if(!r.ok) throw new Error(data?.error?.message||"Erro na API Gemini");
-  const text=data?.candidates?.[0]?.content?.parts?.map((p:{text?:string})=>p.text||"").join("")||"";
-  return{text,provider:"google",model};
+  const preferred=process.env.GEMINI_MODEL;
+  const models=[preferred,"gemini-3.8-flash","gemini-3.5-flash-lite","gemini-3.5-flash"].filter((m,i,a):m is string=>Boolean(m)&&a.indexOf(m)===i);
+  let lastError="Gemini indisponível";
+  for(const model of models){
+    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{
+      method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
+    });
+    const data=await r.json();
+    if(r.ok){
+      const text=data?.candidates?.[0]?.content?.parts?.map((p:{text?:string})=>p.text||"").join("")||"";
+      return{text,provider:"google",model};
+    }
+    lastError=data?.error?.message||`Erro no modelo ${model}`;
+    const retryable=r.status===429||r.status===503||/high demand|overloaded|unavailable/i.test(lastError);
+    if(!retryable) throw new Error(lastError);
+  }
+  throw new Error(lastError);
 }
 
 async function deepseek(prompt:string):Promise<DirectResult>{
