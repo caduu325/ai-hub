@@ -40,15 +40,36 @@ async function deepseek(prompt:string):Promise<DirectResult>{
   return{text:data?.choices?.[0]?.message?.content||"",provider:"deepseek",model};
 }
 
+type ProviderCall={name:string;configured:()=>boolean;run:(prompt:string)=>Promise<DirectResult>};
+
+function providerCalls():ProviderCall[]{
+  return [
+    {name:"Gemini",configured:()=>Boolean(process.env.GEMINI_API_KEY),run:gemini},
+    {name:"DeepSeek",configured:()=>Boolean(process.env.DEEPSEEK_API_KEY),run:deepseek},
+  ];
+}
+
 async function callDirect(prompt:string,selected:string):Promise<DirectResult>{
-  if(selected==="Gemini") return gemini(prompt);
-  if(selected==="DeepSeek") return deepseek(prompt);
-  if(selected==="GPT") throw new Error("OPENAI_API_KEY ainda não configurada");
-  if(selected==="Claude") throw new Error("ANTHROPIC_API_KEY ainda não configurada");
-  // Automático: usa somente provedores realmente configurados, priorizando Gemini.
-  if(process.env.GEMINI_API_KEY) return gemini(prompt);
-  if(process.env.DEEPSEEK_API_KEY) return deepseek(prompt);
-  throw new Error("Nenhuma API direta configurada. Adicione GEMINI_API_KEY ou DEEPSEEK_API_KEY na Vercel.");
+  const providers=providerCalls();
+  if(selected!=="Automático"){
+    const chosen=providers.find(p=>p.name===selected);
+    if(chosen){
+      if(!chosen.configured()) throw new Error(`${selected} ainda não está conectado ao AI HUB.`);
+      return chosen.run(prompt);
+    }
+    if(selected==="GPT") throw new Error("GPT ainda não está conectado ao AI HUB.");
+    if(selected==="Claude") throw new Error("Claude ainda não está conectado ao AI HUB.");
+  }
+  const available=providers.filter(p=>p.configured());
+  if(!available.length) throw new Error("Nenhuma API direta configurada no AI HUB.");
+  const errors:string[]=[];
+  for(const provider of available){
+    try{return await provider.run(prompt)}
+    catch(error){
+      errors.push(`${provider.name}: ${error instanceof Error?error.message:"falhou"}`);
+    }
+  }
+  throw new Error(`Todas as IAs disponíveis falharam. ${errors.join(" | ")}`);
 }
 
 export async function POST(req:Request){
